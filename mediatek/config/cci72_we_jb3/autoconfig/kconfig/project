@@ -1,7 +1,10 @@
 CONFIG_MT6572_EVB_BOARD=y
 CONFIG_MTK_VIDEOCODEC_DRIVER=m
-#CONFIG_USB_MTK_OTG=y
-#CONFIG_USB_MTK_HDRC_HCD=y
+# USB host/OTG so a USB-C DAC/headphone (USB Audio Class device) works.
+# The MUSB controller is dual-role; the ID pin (IDDIG) selects host, and
+# the battery charger's OTG boost (tbl_charger_otg_vbus) sources 5V VBUS.
+CONFIG_USB_MTK_OTG=y
+CONFIG_USB_MTK_HDRC_HCD=y
 CONFIG_MTK_RTC=y
 CONFIG_MTK_MMC=y
 CONFIG_MTK_SOUND=y
@@ -44,3 +47,8 @@ CONFIG_KPD_PMIC_LPRST_TD=1
 # /dev/stpbt <-> hci0. A2DP/AVRCP ride L2CAP, so RFCOMM/BNEP/HIDP stay off.
 CONFIG_BT=y
 CONFIG_BT_HCIVHCI=y
+
+# USB Audio Class host driver for USB-C DACs/headphones (needs the USB
+# host/OTG above; ALSA core CONFIG_SND/CONFIG_SOUND are already enabled).
+CONFIG_SND_USB=y
+CONFIG_SND_USB_AUDIO=y
