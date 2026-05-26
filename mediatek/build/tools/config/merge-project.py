@@ -1,8 +1,8 @@
 import re, os, sys
 pattern = [
-  re.compile("^([^=\s]+)\s*=\s*(.+)$"),
-  re.compile("^([^=\s]+)\s*=$"),
-  re.compile("\s*#")
+  re.compile(r"^([^=\s]+)\s*=\s*(.+)$"),
+  re.compile(r"^([^=\s]+)\s*=$"),
+  re.compile(r"\s*#")
 ]
 
 config = {}
@@ -11,7 +11,7 @@ project_file.remove(sys.argv[0])
 for f in project_file:
     ff = open(f)
     for line in ff.readlines():
-      result = (filter(lambda x:x,[x.search(line) for x in pattern]) or [None])[0]
+      result = (list(filter(lambda x:x,[x.search(line) for x in pattern])) or [None])[0]
       if not result: continue
       name,value = None,None
       if len(result.groups())==0: continue
@@ -23,5 +23,5 @@ for f in project_file:
       config[name] = value.strip()
 
 for item in sorted(config.keys()):
-    print "%s = %s"%(item,config[item])
+    print("%s = %s"%(item,config[item]))
 
