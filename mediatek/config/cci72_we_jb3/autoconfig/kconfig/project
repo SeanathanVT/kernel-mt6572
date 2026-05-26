@@ -47,8 +47,25 @@ CONFIG_KPD_PMIC_LPRST_TD=1
 # /dev/stpbt <-> hci0. A2DP/AVRCP ride L2CAP, so RFCOMM/BNEP/HIDP stay off.
 CONFIG_BT=y
 CONFIG_BT_HCIVHCI=y
+# Pin the BT sub-options off (they become visible once BT=y, and the
+# build's config step would otherwise prompt for each). We use only the
+# core + virtual HCI; HCI hardware drivers, RFCOMM, BNEP and HIDP are unused.
+# CONFIG_BT_RFCOMM is not set
+# CONFIG_BT_BNEP is not set
+# CONFIG_BT_HIDP is not set
+# CONFIG_BT_HCIBTUSB is not set
+# CONFIG_BT_HCIBTSDIO is not set
+# CONFIG_BT_HCIUART is not set
+# CONFIG_BT_HCIBCM203X is not set
+# CONFIG_BT_HCIBPA10X is not set
+# CONFIG_BT_HCIBFUSB is not set
+# CONFIG_BT_MRVL is not set
 
 # USB Audio Class host driver for USB-C DACs/headphones (needs the USB
 # host/OTG above; ALSA core CONFIG_SND/CONFIG_SOUND are already enabled).
 CONFIG_SND_USB=y
 CONFIG_SND_USB_AUDIO=y
+# Pin the other USB-audio device drivers off (visible once SND_USB=y).
+# CONFIG_SND_USB_UA101 is not set
+# CONFIG_SND_USB_CAIAQ is not set
+# CONFIG_SND_USB_6FIRE is not set
