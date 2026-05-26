@@ -1212,15 +1212,15 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	if (!config)
 		return -ENOMEM;
 
-#ifdef MTK_MULTI_STORAGE_SUPPORT
-#ifdef MTK_SHARED_SDCARD
+	/*
+	 * Y1 (Rockbox): always expose a single LUN. The stock multi-storage
+	 * config (MTK_MULTI_STORAGE_SUPPORT && !MTK_SHARED_SDCARD) creates a
+	 * second, empty LUN. PCs tolerate the empty LUN, but many car head
+	 * units refuse to enumerate the device as a playable USB drive when a
+	 * LUN reports no media. The Y1 only ever backs lun0 (the SD card), so
+	 * the second LUN is always empty here.
+	 */
 #define NLUN_STORAGE 1
-#else
-#define NLUN_STORAGE 2
-#endif
-#else
-#define NLUN_STORAGE 1
-#endif
 
 	config->fsg.nluns = NLUN_STORAGE;
 
