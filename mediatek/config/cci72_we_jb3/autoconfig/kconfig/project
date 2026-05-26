@@ -35,3 +35,12 @@ CONFIG_POWER_EXT=n
 # CONFIG_ONEKEY_REBOOT_OTHER_MODE is not set
 # CONFIG_TWOKEY_REBOOT_OTHER_MODE is not set
 CONFIG_KPD_PMIC_LPRST_TD=1
+
+# Bluetooth (BlueZ) for Rockbox. Stock Android drives the CONSYS combo
+# chip with bluedroid in userspace over /dev/stpbt and leaves the kernel
+# BT subsystem off (platform sets "# CONFIG_BT is not set"). Rockbox uses
+# BlueZ, which needs the in-kernel BT core (L2CAP/SCO/SMP are folded in on
+# 3.4) plus a virtual HCI so the userspace STP-H4 shim can relay
+# /dev/stpbt <-> hci0. A2DP/AVRCP ride L2CAP, so RFCOMM/BNEP/HIDP stay off.
+CONFIG_BT=y
+CONFIG_BT_HCIVHCI=y
