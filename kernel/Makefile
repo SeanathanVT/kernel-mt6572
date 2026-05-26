@@ -378,6 +378,10 @@ KBUILD_AFLAGS_MODULE  := -DMODULE
 KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 
+# Standalone (non-Android-tree) builds don't set MTK_PROJECT; derive it from
+# TARGET_PRODUCT so the per-project _mtk_cust.mak (MTK global -D defines) and
+# the custom include path below resolve correctly.
+MTK_PROJECT ?= $(TARGET_PRODUCT)
 -include $(srctree)/$(MTK_PROJECT)_mtk_cust.mak
 MTK_INC += -I$(MTK_ROOT_CUSTOM)/$(MTK_PROJECT)/common
 LINUXINCLUDE	+= $(MTK_INC)
