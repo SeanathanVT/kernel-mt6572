@@ -1,0 +1,8 @@
+# Generated kernel config/build artifacts — do NOT track.
+# The pinned source for this device's config is
+# arch/arm/configs/cci72_we_jb3_defconfig; everything below is regenerated
+# by `make cci72_we_jb3_defconfig` and the build.
+/.config
+/.config.old
+/include/config/
+/include/generated/
