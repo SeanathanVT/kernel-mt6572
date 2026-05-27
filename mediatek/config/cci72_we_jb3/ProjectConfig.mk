@@ -605,8 +605,14 @@ MTK_ETWS_SUPPORT=no
 MTK_FACEBEAUTY_SUPPORT=no
 MTK_FACTORY_MODE_IN_GB2312=yes
 
-# use external charger IC, MTK support
-MTK_FAN5405_SUPPORT=no
+# use external charger IC, MTK support. The Y1 uses the FAN5405; this make-var
+# gates building its driver (power/Makefile: fan5405.o charging_hw_fan5405.o,
+# which define fan5405_set_otg_en etc.). ProjectConfig.mk is read by the
+# standalone kernel build (via arch/arm/Makefile -> the mediatek bridge) after
+# kernel/cci72_we_jb3_mtk_cust.mak, so this value -- not cust.mak's -- is what
+# the driver Makefiles see. Must be yes or usb20.c/musb_otg_if.c link against
+# an undefined fan5405_*.
+MTK_FAN5405_SUPPORT=yes
 MTK_FASTBOOT_SUPPORT=yes
 
 # For NAND phone such as in EMMC phone with internal sd card, FAT on NAND feature was cut from NAND to be a independent fat partition,and create FAT image file over /fat yaffs2 file system, then let NAND phone can support FAT file system in internal.

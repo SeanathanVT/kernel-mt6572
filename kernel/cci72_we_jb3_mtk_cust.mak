@@ -20,14 +20,18 @@
 # AUTO_ADD list but the Y1 doesn't use them, and their drivers are shipped
 # incomplete in this GPL drop (missing mt6320_battery.h / ncp1851.h).
 #
-# MTK_FAN5405_SUPPORT does double duty: a make variable that gates building the
-# FAN5405 driver (power/Makefile: fan5405.o charging_hw_fan5405.o) which defines
-# fan5405_set_otg_en, AND a -D so usb20.c/musb_otg_if.c take the FAN5405 branch
-# (fan5405_set_otg_en for USB-host OTG VBUS, not the undefined board GPIO or the
-# uncompilable bq24196 path). Need both, or the callers compile but the
-# definition is never built/linked.
-MTK_FAN5405_SUPPORT := yes
-export MTK_FAN5405_SUPPORT
+# usb20.c / musb_otg_if.c gate their USB-host OTG VBUS path on
+# #ifdef MTK_FAN5405_SUPPORT (fan5405_set_otg_en, not the undefined board GPIO
+# or the uncompilable bq24196 path). This -D supplies that C define; the
+# standalone build's macro auto-generation doesn't emit it.
+#
+# The companion make-VARIABLE that gates *building* the FAN5405 driver
+# (power/Makefile: fan5405.o charging_hw_fan5405.o, which define
+# fan5405_set_otg_en) lives in mediatek/config/cci72_we_jb3/ProjectConfig.mk
+# (=yes). Don't set it here: ProjectConfig.mk is included (via arch/arm/Makefile
+# -> the mediatek bridge) AFTER this file, so a value set here is overwritten by
+# ProjectConfig's and has no effect. Need both the -D (here) and the
+# ProjectConfig make-var, or the callers compile but fan5405_* is never built.
 MTK_CDEFS += -DMTK_FAN5405_SUPPORT
 
 # fan5405.c quote-includes "cust_charging.h", which lives in the platform's
