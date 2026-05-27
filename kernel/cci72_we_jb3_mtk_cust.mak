@@ -15,6 +15,12 @@
 # Use MTK_CDEFS only (-> KBUILD_CFLAGS, reaches C compilation); adding the same
 # define via MTK_CPPDEFS/MTK_ADEFS too produces "<command-line>: X redefined".
 #
-# MTK_BQ24196_SUPPORT: usb20.c uses the BQ24196 charger's OTG boost for USB-host
-# VBUS instead of an undefined board GPIO. The Y1 has this charger.
+# MTK_BQ24196_SUPPORT does double duty: a make variable that gates building the
+# charger driver (power/Makefile, thermal/Makefile: ifeq ($(MTK_BQ24196_SUPPORT),
+# yes)) which defines tbl_charger_otg_vbus, AND a -D so usb20.c/musb_otg_if.c
+# call it for USB-host VBUS (instead of an undefined board GPIO). The Y1 has this
+# charger. Need both — with only the -D, the callers compile but the definition
+# is never built/linked (undefined reference to tbl_charger_otg_vbus).
+MTK_BQ24196_SUPPORT := yes
+export MTK_BQ24196_SUPPORT
 MTK_CDEFS += -DMTK_BQ24196_SUPPORT
