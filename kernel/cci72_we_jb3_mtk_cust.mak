@@ -15,12 +15,22 @@
 # Use MTK_CDEFS only (-> KBUILD_CFLAGS, reaches C compilation); adding the same
 # define via MTK_CPPDEFS/MTK_ADEFS too produces "<command-line>: X redefined".
 #
-# MTK_BQ24196_SUPPORT does double duty: a make variable that gates building the
-# charger driver (power/Makefile, thermal/Makefile: ifeq ($(MTK_BQ24196_SUPPORT),
-# yes)) which defines tbl_charger_otg_vbus, AND a -D so usb20.c/musb_otg_if.c
-# call it for USB-host VBUS (instead of an undefined board GPIO). The Y1 has this
-# charger. Need both — with only the -D, the callers compile but the definition
-# is never built/linked (undefined reference to tbl_charger_otg_vbus).
-MTK_BQ24196_SUPPORT := yes
-export MTK_BQ24196_SUPPORT
-MTK_CDEFS += -DMTK_BQ24196_SUPPORT
+# The Y1's charger IC is the FAN5405 (confirmed from a stock-kernel string:
+# "power off FAN5405 and system"). BQ24196/NCP1851 are also in the generic
+# AUTO_ADD list but the Y1 doesn't use them, and their drivers are shipped
+# incomplete in this GPL drop (missing mt6320_battery.h / ncp1851.h).
+#
+# MTK_FAN5405_SUPPORT does double duty: a make variable that gates building the
+# FAN5405 driver (power/Makefile: fan5405.o charging_hw_fan5405.o) which defines
+# fan5405_set_otg_en, AND a -D so usb20.c/musb_otg_if.c take the FAN5405 branch
+# (fan5405_set_otg_en for USB-host OTG VBUS, not the undefined board GPIO or the
+# uncompilable bq24196 path). Need both, or the callers compile but the
+# definition is never built/linked.
+MTK_FAN5405_SUPPORT := yes
+export MTK_FAN5405_SUPPORT
+MTK_CDEFS += -DMTK_FAN5405_SUPPORT
+
+# fan5405.c quote-includes "cust_charging.h", which lives in the platform's
+# custom battery dir (not on the standalone build's include path, since no
+# natural-built file referenced it). Add it so the FAN5405 driver compiles.
+MTK_INC += -I$(MTK_ROOT_CUSTOM)/mt6572/kernel/battery/battery
