@@ -92,10 +92,20 @@ extern LCM_DRIVER rm68190_dsi_vdo_lcm_drv;
 extern LCM_DRIVER nt35596_fhd_dsi_vdo_truly_lcm_drv;
 extern LCM_DRIVER otm9608_wvga_dsi_cmd_drv;
 extern LCM_DRIVER nt35510_dbi_18bit_gionee_lcm_drv;
+extern LCM_DRIVER gc9503v_hvga_dsi_vdo_hsd_lcm_drv;
+extern LCM_DRIVER st7701_hvga_dsi_vdo_boe_lcm_drv;
 
 
-LCM_DRIVER* lcm_driver_list[] = 
-{ 
+LCM_DRIVER* lcm_driver_list[] =
+{
+#if defined(GC9503V_HVGA_DSI_VDO_HSD)
+	&gc9503v_hvga_dsi_vdo_hsd_lcm_drv,
+#endif
+
+#if defined(ST7701_HVGA_DSI_VDO_BOE)
+	&st7701_hvga_dsi_vdo_boe_lcm_drv,
+#endif
+
 #if defined(HX8369)
 	&hx8369_lcm_drv,
 #endif

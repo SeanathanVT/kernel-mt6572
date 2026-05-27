@@ -1381,13 +1381,18 @@ MTK_HDMI_SUPPORT=no
 BOOT_LOGO=wvga
 
 # To choose kernel LCM driver name
-CUSTOM_KERNEL_LCM=nt35510_dsi_cmd_6572
+# The Y1 (g368_nyx) ships one of two 480x360 DSI video-mode panels, selected at
+# runtime by compare_id: GC9503V (HSD) or ST7701 (BOE). List both; the kernel
+# auto-detects, exactly as the stock LK does. (cci72_we_jb3 originally targeted
+# nt35510_dsi_cmd_6572 -- a 480x800 command-mode phone panel that isn't on this
+# hardware; it hangs display init and watchdog-resets the kernel.)
+CUSTOM_KERNEL_LCM=gc9503v_hvga_dsi_vdo_hsd st7701_hvga_dsi_vdo_boe
 
 # To choose uboot LCM driver name
 CUSTOM_UBOOT_LCM=nt35582_mcu_6575
 
 # To set LCM resolution height size
-LCM_HEIGHT=800
+LCM_HEIGHT=360
 
 # To set LCM resolution width size
 LCM_WIDTH=480
