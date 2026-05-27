@@ -870,7 +870,13 @@ int __init musb_platform_init(struct musb *musb)
 	if (is_host_enabled(musb)) {
 		musb->board_set_vbus = mtk_set_vbus;
 		#ifndef CONFIG_EARLY_LINUX_PORTING
-		#ifndef MTK_BQ24196_SUPPORT
+		/* Only set up a board VBUS-drive GPIO when no charger IC sources
+		 * VBUS. mtk_set_vbus() drives VBUS via the charger for FAN5405/
+		 * NCP1851/BQ24196 and only falls back to GPIO_OTG_DRVVBUS_PIN
+		 * otherwise, so this setup must use the same condition (the stock
+		 * guard checked BQ24196 only, breaking FAN5405 boards like the Y1
+		 * where the pin is undefined). */
+		#if !defined(MTK_BQ24196_SUPPORT) && !defined(MTK_NCP1851_SUPPORT) && !defined(MTK_FAN5405_SUPPORT)
 		mt_set_gpio_mode(GPIO_OTG_DRVVBUS_PIN,GPIO_OTG_DRVVBUS_PIN_M_GPIO);//should set GPIO2 as gpio mode.
 		mt_set_gpio_dir(GPIO_OTG_DRVVBUS_PIN,GPIO_DIR_OUT);
 		mt_get_gpio_pull_enable(GPIO_OTG_DRVVBUS_PIN);
