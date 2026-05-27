@@ -15,6 +15,19 @@ The build target ("product") is `cci72_we_jb3`.
   `/dev/stpbt` to `hci0` for BlueZ.
 - **USB host/OTG + USB Audio Class.** Lets a USB-C DAC or USB-C headphones
   be used for digital audio out.
+- **Correct display panel.** Stock `cci72_we_jb3` targets the `nt35510`
+  (480×800 command-mode) panel the Y1 doesn't have, so the rebuilt kernel hung
+  in display init and reset. The Y1 uses a 480×360 DSI *video*-mode panel —
+  GC9503V or ST7701 — auto-detected at boot via `compare_id`. Both drivers were
+  reverse-engineered from the stock bootloader
+  (`mediatek/custom/common/kernel/lcm/{gc9503v_hvga_dsi_vdo_hsd,st7701_hvga_dsi_vdo_boe}`);
+  selected in `mediatek/config/cci72_we_jb3/ProjectConfig.mk` (`CUSTOM_KERNEL_LCM`).
+- **Charger = FAN5405.** `MTK_FAN5405_SUPPORT=yes` in `ProjectConfig.mk` (not
+  the stock-default BQ24196/NCP1851, whose drivers are incomplete in this drop);
+  also gates the USB-host OTG VBUS path.
+- **Watchdog disabled (bring-up).** `mtk_wdt_probe` forces the WDT off so a
+  userspace that doesn't yet kick `/dev/watchdog` (Rockbox) isn't reset ~30 s
+  in. **Revert once Rockbox owns the watchdog.**
 - **Pinned config.** The device config is
   `arch/arm/configs/cci72_we_jb3_defconfig`. Generated artifacts
   (`.config`, `include/config/`, `include/generated/`) are not tracked —
