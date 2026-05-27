@@ -3533,6 +3533,7 @@ static int mtkfb_probe(struct device *dev)
         first_update = false;
     
     printk("%s, %s\n", __func__, saved_command_line);
+    printk("[Y1FB] mtkfb_probe: instrumented build (probe+cfgthread+config_layer markers)\n");
     p = strstr(saved_command_line, "fps=");
     if(p == NULL){
         lcd_fps = 6000;
