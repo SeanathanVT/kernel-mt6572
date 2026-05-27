@@ -575,6 +575,23 @@ int disp_path_config_layer(OVL_CONFIG_STRUCT* pOvlConfig)
 
     //printk("[DDP]disp_path_config_layer() done, addr=0x%x \n", pOvlConfig->addr);
 
+    /* Y1 bring-up measurement: log the layer addr we just programmed and read
+     * back the live OVL layer-address registers + dump RDMA0, for the first few
+     * configs (boot logo + fb_paint pans during init -- captured in
+     * Y1_dmesg.txt). Tells us whether a pan actually moves OVL_L3_ADDR and what
+     * RDMA0 is scanning. Remove once the video-mode pan latch is fixed. */
+    {
+        static int y1_cfg_dbg = 0;
+        if (y1_cfg_dbg < 10) {
+            y1_cfg_dbg++;
+            printk("[Y1FB] config_layer L%d en=%d want_addr=0x%x | OVL_L0=0x%x L1=0x%x L2=0x%x L3=0x%x\n",
+                   pOvlConfig->layer, pOvlConfig->layer_en, pOvlConfig->addr,
+                   DISP_REG_GET(DISP_REG_OVL_L0_ADDR), DISP_REG_GET(DISP_REG_OVL_L1_ADDR),
+                   DISP_REG_GET(DISP_REG_OVL_L2_ADDR), DISP_REG_GET(DISP_REG_OVL_L3_ADDR));
+            disp_dump_reg(DISP_MODULE_RDMA0);
+        }
+    }
+
     return 0;
 }
 
