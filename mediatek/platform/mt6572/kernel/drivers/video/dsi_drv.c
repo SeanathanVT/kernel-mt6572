@@ -959,6 +959,9 @@ DSI_STATUS DSI_StartTransfer(bool isMutexLocked)
 }
 
 
+#define DSI_GLITCH_POLL(cond) do { unsigned long long _gp_t = sched_clock(); \
+    while (cond) { if (((unsigned int)sched_clock() - (unsigned int)_gp_t) > 50000) { \
+        DISP_LOG_PRINT(ANDROID_LOG_ERROR, "DSI", "DSI_Detect_CLK_Glitch poll timeout @%d\n", __LINE__); break; } } } while (0)
 DSI_STATUS DSI_Detect_CLK_Glitch(void)
 {
     int data_array[2];
@@ -969,7 +972,7 @@ DSI_STATUS DSI_Detect_CLK_Glitch(void)
     unsigned long long start_time,end_time;
 
 
-    while(DSI_REG->DSI_INTSTA.BUSY);
+    DSI_GLITCH_POLL(DSI_REG->DSI_INTSTA.BUSY);
     OUTREG32(&DSI_REG->DSI_INTSTA, 0x0);
     
     DSI_BackUpCmdQ();
@@ -982,7 +985,7 @@ DSI_STATUS DSI_Detect_CLK_Glitch(void)
     
     OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,0);
     OUTREGBIT(DSI_START_REG,DSI_REG->DSI_START,DSI_START,1);
-    while(DSI_REG->DSI_INTSTA.CMD_DONE == 0);
+    DSI_GLITCH_POLL(DSI_REG->DSI_INTSTA.CMD_DONE == 0);
     OUTREGBIT(DSI_INT_STATUS_REG,DSI_REG->DSI_INTSTA,CMD_DONE,0);
     
     MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagPulse, 0, 0);
@@ -992,7 +995,7 @@ DSI_STATUS DSI_Detect_CLK_Glitch(void)
         
         MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagPulse, 0, 9);
 
-        while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x1) == 0);	 // polling bit0
+        DSI_GLITCH_POLL((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x1) == 0);	 // polling bit0
         OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,0);
         OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,1);//reset
         OUTREGBIT(DSI_COM_CTRL_REG,DSI_REG->DSI_COM_CTRL,DSI_RESET,0);
@@ -1004,7 +1007,7 @@ DSI_STATUS DSI_Detect_CLK_Glitch(void)
         }
         DSI_clk_HS_mode(1);
         MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagPulse, 0, 1);
-        while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0);	 // polling bit18 start
+        DSI_GLITCH_POLL((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0);	 // polling bit18 start
 
         MMProfileLogEx(MTKFB_MMP_Events.Debug, MMProfileFlagPulse, 0, 2);
         if(i>0)
@@ -1128,7 +1131,7 @@ DSI_STATUS DSI_Detect_CLK_Glitch(void)
     
     DSI_clk_HS_mode(1);
     
-    while((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0);	 // polling bit18
+    DSI_GLITCH_POLL((INREG32(&DSI_REG->DSI_STATE_DBG0)&0x40000) == 0);	 // polling bit18
     
     OUTREGBIT(MIPITX_DSI_SW_CTRL_REG,DSI_PHY_REG->MIPITX_DSI_SW_CTRL,SW_CTRL_EN,0x0);
 
