@@ -572,6 +572,8 @@ static void __init clean_rootfs(void)
 static int __init populate_rootfs(void)
 {
 	char *err = unpack_to_rootfs(__initramfs_start, __initramfs_size);
+	pr_emerg("Y1INTRD: __initramfs_start=%p __initramfs_size=%lu err=%s\n",
+		 __initramfs_start, __initramfs_size, err ? err : "OK");
 	if (err)
 		panic(err);	/* Failed to decompress INTERNAL initramfs */
 	if (initrd_start) {
