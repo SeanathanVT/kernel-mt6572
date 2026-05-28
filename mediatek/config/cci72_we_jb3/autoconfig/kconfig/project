@@ -69,3 +69,103 @@ CONFIG_SND_USB_AUDIO=y
 # CONFIG_SND_USB_UA101 is not set
 # CONFIG_SND_USB_CAIAQ is not set
 # CONFIG_SND_USB_6FIRE is not set
+
+# --- Bloat trim: 72 options the mt6572/autoconfig/kconfig/platform fragment
+# enables that stock kallsyms shows aren't actually built into the stock Y1
+# kernel, and that Rockbox doesn't need.  The defconfig disables these but
+# the merge order (common -> platform -> project -> flavor) lets the
+# platform fragment re-enable them, so we have to re-disable them here in
+# the project fragment too.  See memory/project_y1_kernel_fork.md and the
+# defconfig commit (a7ee0264) for the per-option rationale.
+
+# Debug / profiling
+# CONFIG_IKCONFIG is not set
+# CONFIG_IKCONFIG_PROC is not set
+# CONFIG_PROFILING is not set
+# CONFIG_OPROFILE is not set
+# CONFIG_KPROBES is not set
+# CONFIG_SCHEDSTATS is not set
+# CONFIG_PRINTK_PROCESS_INFO is not set
+
+# MTK profiler / tracer
+# CONFIG_MTK_SCHED_TRACERS is not set
+# CONFIG_MT65XX_TRACER is not set
+# CONFIG_MTK_MET is not set
+# CONFIG_MTK_MET_PLF is not set
+# CONFIG_MTPROF_CPUTIME is not set
+# CONFIG_MTPROF_IRQ_DURATION is not set
+# CONFIG_MT_LOAD_BALANCE_PROFILER is not set
+# CONFIG_PREEMPT_MONITOR is not set
+# CONFIG_ISR_MONITOR is not set
+# CONFIG_MT_CHRDEV_REG is not set
+
+# USB debug
+# CONFIG_USB_MTK_DEBUG is not set
+# CONFIG_USB_MTK_DEBUG_FS is not set
+
+# Network bloat
+# CONFIG_NET_KEY is not set
+# CONFIG_IP_PNP is not set
+# CONFIG_IP_PNP_DHCP is not set
+# CONFIG_IP_PNP_BOOTP is not set
+# CONFIG_IP_MROUTE is not set
+# CONFIG_IP_MROUTE_MULTIPLE_TABLES is not set
+# CONFIG_IP_PIMSM_V1 is not set
+# CONFIG_IP_PIMSM_V2 is not set
+# CONFIG_IPV6_PRIVACY is not set
+
+# QoS / classifier
+# CONFIG_NET_SCH_HTB is not set
+# CONFIG_NET_CLS_U32 is not set
+# CONFIG_CLS_U32_PERF is not set
+# CONFIG_CLS_U32_MARK is not set
+
+# Netfilter matches/targets not in stock
+# CONFIG_NETFILTER_XT_TARGET_CLASSIFY is not set
+# CONFIG_NETFILTER_XT_MATCH_STRING is not set
+# CONFIG_NETFILTER_XT_MATCH_QUOTA is not set
+# CONFIG_NETFILTER_XT_MATCH_QUOTA2 is not set
+# CONFIG_NETFILTER_XT_MATCH_QUOTA2_LOG is not set
+# CONFIG_NETFILTER_XT_MATCH_RECENT is not set
+
+# Wireless debug
+# CONFIG_CFG80211_DEVELOPER_WARNINGS is not set
+# CONFIG_CFG80211_DEBUGFS is not set
+# CONFIG_CFG80211_INTERNAL_REGDB is not set
+# CONFIG_WIRELESS_EXT_SYSFS is not set
+# CONFIG_LIB80211_DEBUG is not set
+
+# USB ACM / storage quirks
+# CONFIG_USB_ACM is not set
+# CONFIG_USB_LIBUSUAL is not set
+# CONFIG_USB_TRANCEVIBRATOR is not set
+# CONFIG_USB_STORAGE_DATAFAB is not set
+# CONFIG_USB_STORAGE_FREECOM is not set
+# CONFIG_USB_STORAGE_USBAT is not set
+# CONFIG_USB_STORAGE_SDDR55 is not set
+# CONFIG_USB_STORAGE_JUMPSHOT is not set
+# CONFIG_USB_STORAGE_ALAUDA is not set
+# CONFIG_USB_STORAGE_ONETOUCH is not set
+# CONFIG_USB_STORAGE_CYPRESS_ATACB is not set
+
+# HID brand quirks not in stock
+# CONFIG_HID_A4TECH is not set
+# CONFIG_HID_CHERRY is not set
+# CONFIG_HID_CHICONY is not set
+# CONFIG_HID_CYPRESS is not set
+# CONFIG_HID_DRAGONRISE is not set
+# CONFIG_HID_LOGITECH is not set
+# CONFIG_HID_MONTEREY is not set
+# CONFIG_HID_PANTHERLORD is not set
+# CONFIG_HID_PETALYNX is not set
+# CONFIG_HID_SUNPLUS is not set
+# CONFIG_HID_GREENASIA is not set
+# CONFIG_HID_KENSINGTON is not set
+# CONFIG_HID_SMARTJOYPLUS is not set
+# CONFIG_HID_TOPSEED is not set
+# CONFIG_HID_THRUSTMASTER is not set
+# CONFIG_HID_ZEROPLUS is not set
+
+# Misc
+# CONFIG_SCSI_TGT is not set
+# CONFIG_CRYPTO_TWOFISH is not set
