@@ -1,27 +1,5 @@
 CONFIG_MT6572_EVB_BOARD=y
 CONFIG_MTK_VIDEOCODEC_DRIVER=m
-
-# Bake the y1-platform initramfs directly into the kernel image.  The
-# external-initrd path (LK loads ramdisk.cpio.gz to PA 0x84100000, kernel
-# reads it via ATAG_INITRD2) panics on the rebuilt kernel -- the bytes at
-# initrd_start aren't the gzip cpio LK delivered, and the kernel detects
-# LZMA magic instead.  An internal initramfs avoids that read entirely:
-# populate_rootfs() unpacks __initramfs_start (the linked-in cpio) first,
-# and once rootfs is populated /init runs.  The external initrd unpack
-# still runs and fails, but its failure is harmless after the internal
-# unpack succeeded.  build-rockbox-boot.sh populates the source directory
-# below, so run it once (just to stage the initramfs files) before
-# building the kernel.
-CONFIG_INITRAMFS_SOURCE="../../y1-platform/rockbox-boot/build/initramfs"
-CONFIG_INITRAMFS_ROOT_UID=0
-CONFIG_INITRAMFS_ROOT_GID=0
-CONFIG_INITRAMFS_COMPRESSION_GZIP=y
-# CONFIG_INITRAMFS_COMPRESSION_NONE is not set
-# CONFIG_INITRAMFS_COMPRESSION_BZIP2 is not set
-# CONFIG_INITRAMFS_COMPRESSION_LZMA is not set
-# CONFIG_INITRAMFS_COMPRESSION_XZ is not set
-# CONFIG_INITRAMFS_COMPRESSION_LZO is not set
-
 # USB host/OTG so a USB-C DAC/headphone (USB Audio Class device) works.
 # The MUSB controller is dual-role; the ID pin (IDDIG) selects host, and
 # the battery charger's OTG boost (tbl_charger_otg_vbus) sources 5V VBUS.

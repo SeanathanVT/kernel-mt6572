@@ -6,27 +6,35 @@ The build target ("product") is `cci72_we_jb3`.
 
 ## Status
 
-Boots from BOOTIMG, with the initramfs **embedded directly in the
-zImage** via `CONFIG_INITRAMFS_SOURCE`. The external-initrd path
-(LK loads `ramdisk.cpio.gz` to PA 0x84100000, kernel reads it via
-ATAG_INITRD2) still panics on the rebuilt kernel — the bytes at
-`initrd_start` aren't the gzip cpio LK put there — but
-`populate_rootfs()` unpacks the linked-in cpio first, rootfs is
-populated, and `/init` runs. The external initrd unpack still runs
-and still fails with `Initramfs unpacking failed: compression method
-lzma not configured`, but that's now harmless. The underlying bug is
-parked (see [Known open issues](#known-open-issues)).
+The external-initrd path on the rebuilt kernel panics in
+`populate_rootfs`: kernel sees `5d 00` (LZMA magic, not gzip) at
+`initrd_start`, falls through to `mount_root`, and panics with
+`Unable to mount root fs on unknown-block(0,0)`. Stock kernel + the
+same boot.img layout boots cleanly, so LK and the orchestrator
+memcpy are fine — something rebuilt-kernel-specific is clobbering or
+mis-mapping the DRAM at PA 0x84100000 between when LK lands the
+ramdisk and when `populate_rootfs` reads it. Root cause not yet
+identified; bring-up parked here.
+
+A `CONFIG_INITRAMFS_SOURCE` workaround was tried (embed the
+initramfs into the zImage so `populate_rootfs` doesn't depend on
+ATAG_INITRD2 reads at all). It compiled correctly — `objdump`
+confirms `__initramfs_size = 917142` in vmlinux — but the device
+still loops the same Innioasis-logo→black→reset pattern, suggesting
+either the runtime read of `__initramfs_size` returns 0 (section
+not loaded as we expect) or the kernel hangs in early init without
+writing expdb. Reverted while we look for a better diagnostic angle.
 
 The display panel and DSI bring-up are correct (LCM driver + DSI
-PHY/PLL match the stock kernel byte-for-byte); a residual *dark
-screen* after init hands off to Rockbox is a separate bring-up issue
-(see [Known open issues](#known-open-issues)).
+PHY/PLL match the stock kernel byte-for-byte); the dark-screen
+issue when run from RECOVERY is a separate bring-up problem (see
+[Known open issues](#known-open-issues)).
 
-**Install:** wrap `arch/arm/boot/zImage` via
-`y1-platform/rockbox-boot/build-rockbox-boot.sh` and flash to
-BOOTIMG. RECOVERY (`TARGET=recovery`) is a viable fallback. Stock
-restore is two `mtk w` flashes (BOOTIMG + SYSTEM, or + RECOVERY if
-it was overwritten).
+**Install (until BOOTIMG works):** wrap `arch/arm/boot/zImage` with
+the y1-platform build script (`TARGET=recovery`) and flash to the
+RECOVERY partition. The device's existing LK boots the custom
+kernel from there. Stock-restore is two `mtk w` flashes (BOOTIMG +
+SYSTEM, or BOOTIMG + RECOVERY + SYSTEM if recovery was overwritten).
 
 ## Quick start (from a fresh checkout)
 
@@ -52,23 +60,7 @@ sudo apt install -y build-essential bc bison flex perl tar xz-utils
 
 ### 3. Build (nothing → flashable boot.img)
 
-This kernel embeds the y1-platform initramfs via
-`CONFIG_INITRAMFS_SOURCE`, so the y1-platform checkout must be staged
-**before** the kernel build — the source directory gets linked into
-the zImage at compile time. The full one-shot flow:
-
 ```sh
-# (3a) Stage the initramfs source.  Run the wrap script once to populate
-# build/initramfs/ (the boot.img it writes is discarded; we'll rebuild
-# it with the new kernel in step 3d).  Default expects sibling checkouts:
-#   $HOME/git/kernel-mt6572/
-#   $HOME/git/y1-platform/
-# If your tree differs, override CONFIG_INITRAMFS_SOURCE in
-# mediatek/config/cci72_we_jb3/autoconfig/kconfig/project.
-cd $HOME/git/y1-platform/rockbox-boot
-./build-rockbox-boot.sh
-
-# (3b) Build the kernel.
 cd $HOME/git/kernel-mt6572/kernel
 export ARCH=arm
 export CROSS_COMPILE=$HOME/gcc-linaro-4.9.4-2017.01-x86_64_arm-eabi/bin/arm-eabi-
@@ -87,11 +79,9 @@ make cci72_we_jb3_defconfig
 grep -E '^CONFIG_KPROBES=|^CONFIG_IKCONFIG=|^CONFIG_HID_LOGITECH=' .config
 # Expect empty.  If anything echoes, see "Config plumbing" below.
 
-# (3c) Clean rebuild of zImage.  The 3.4 ARM Image→piggy.gzip→zImage
-# cascade is not reliable across source edits, and grep against zImage
-# can't see strings inside the gzip-compressed payload, so make sure
-# zImage actually contains your edits by deleting the cached state and
-# rebuilding from scratch:
+# Clean rebuild of zImage.  The 3.4 ARM Image→piggy.gzip→zImage cascade
+# can keep stale piggy state across source edits; wipe the cached
+# intermediates before rebuilding.
 rm -f arch/arm/boot/zImage \
       arch/arm/boot/Image \
       arch/arm/boot/compressed/vmlinux \
@@ -100,13 +90,14 @@ rm -f arch/arm/boot/zImage \
 
 make -j"$(nproc)" zImage
 
-# (3d) Wrap into a flashable boot.img.  build-rockbox-boot.sh refuses
-# to wrap a zImage older than its sibling Image -- if it bails out,
-# step (3c) didn't take and you need to rerun it.
+# Wrap into a flashable boot.img (note: install to RECOVERY for now,
+# since BOOTIMG with the rebuilt kernel still hits the external-initrd
+# panic -- see Status).
 cd $HOME/git/y1-platform/rockbox-boot
 KERNEL_ZIMAGE=$HOME/git/kernel-mt6572/kernel/arch/arm/boot/zImage \
+    TARGET=recovery \
     ./build-rockbox-boot.sh
-# Output: build/y1-rockbox-bootimg.img -- flash with `mtk w bootimg`.
+# Output: build/y1-rockbox-bootimg.img -- `mtk w recovery <file>`.
 ```
 
 > `TARGET_PRODUCT` must be set, or `mediatek/build/Makefile` errors
@@ -261,17 +252,19 @@ signals are:
 
 ## Known open issues
 
-- **Rebuilt-kernel external-initrd path is broken.** With our zImage,
-  the kernel reads `5d 00` at `initrd_start` (LZMA magic, not gzip),
-  panics on unknown compression, and reports a fixed `Freeing initrd
-  memory: 1528K = 0x17E000` size regardless of the actual ramdisk we
-  packed. Stock zImage + same boot.img boots Rockbox, so LK delivers
-  the bytes; something in the rebuilt kernel either clobbers DRAM at
+- **Rebuilt-kernel BOOTIMG initrd panic.** With our zImage, the kernel
+  reads `5d 00` at `initrd_start` (LZMA magic, not gzip), panics on
+  unknown compression, and reports a fixed `Freeing initrd memory:
+  1528K = 0x17E000` size regardless of the actual ramdisk we packed.
+  Stock zImage + same boot.img boots Rockbox, so LK delivers the
+  bytes; something in the rebuilt kernel either clobbers DRAM at
   PA 0x84100000 before `populate_rootfs` runs, or maps a different VA
-  for it. Worked around by `CONFIG_INITRAMFS_SOURCE` (embed initramfs
-  in zImage); the external-initrd path still fails but the failure is
-  harmless once internal rootfs is populated. Root-cause TBD; not
-  blocking bring-up.
+  for it. A `CONFIG_INITRAMFS_SOURCE` workaround was tried (bake the
+  cpio into the zImage) but the device kept looping the same
+  Innioasis-logo→reset pattern; the build artifacts were correct but
+  runtime behavior didn't change visibly, and the prior Y1DIAG
+  printks never reached expdb either. Install via RECOVERY in the
+  meantime; root-cause and a better diagnostic angle TBD.
 - **Dark screen / Rockbox runs blind.** With the kernel booted from
   RECOVERY, init runs and execs `rockbox.y1`, but the panel scans out
   black instead of the Rockbox UI. The display engine completes init
