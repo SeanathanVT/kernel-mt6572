@@ -169,13 +169,12 @@ static void lcm_get_params(LCM_PARAMS *params)
     params->dsi.horizontal_frontporch   = 80;
     params->dsi.horizontal_active_pixel = FRAME_WIDTH;
 
-    // PLL config. VCO = 26MHz * (fbk_div+1) * 2 = 832MHz (set by fbk_div; locks
-    // fine). pll_div1 is the OUTPUT divider (TXDIV0): =1 -> /2 -> 416 Mbps/lane;
-    // =2 -> /4 -> 208 Mbps/lane. 208 was too thin for the video-mode peak line
-    // rate -> RDMA0 underflow -> DSI link never stabilises (clk-glitch wait spins,
-    // kernel hangs in display bring-up before init). /2 doubles the per-line
-    // headroom without changing the (already-locking) VCO.
-    params->dsi.pll_div1 = 1;
+    // PLL config: byte-for-byte the values the stock g368_nyx kernel programs
+    // for this panel (verified by disassembling its st7701 lcm_get_params).
+    // pll_div1=TXDIV0 (=2 -> /4), pll_div2=TXDIV1, fbk_div=SDM feedback;
+    // VCO = 26MHz * (fbk_div+1) * 2 = 832MHz -> ~208 Mbps/lane. These are the
+    // known-good rate the stock kernel drives the panel at -- do not "tune".
+    params->dsi.pll_div1 = 2;
     params->dsi.pll_div2 = 0;
     params->dsi.fbk_div  = 15;
 }
