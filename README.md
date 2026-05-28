@@ -6,24 +6,30 @@ The build target ("product") is `cci72_we_jb3`.
 
 ## Status
 
-The external-initrd path on the rebuilt kernel panics in
-`populate_rootfs`: kernel sees `5d 00` (LZMA magic, not gzip) at
-`initrd_start`, falls through to `mount_root`, and panics with
-`Unable to mount root fs on unknown-block(0,0)`. Stock kernel + the
-same boot.img layout boots cleanly, so LK and the orchestrator
-memcpy are fine — something rebuilt-kernel-specific is clobbering or
-mis-mapping the DRAM at PA 0x84100000 between when LK lands the
-ramdisk and when `populate_rootfs` reads it. Root cause not yet
-identified; bring-up parked here.
+This rebuild is **no longer required for Bluetooth** — the Path-C BT
+effort moved to userspace BTstack on the stock kernel via `/dev/stpbt`
+(see `y1-platform/docs/bluetooth.md`). The remaining motivators for
+the kernel rebuild are:
 
-A `CONFIG_INITRAMFS_SOURCE` workaround was tried (embed the
-initramfs into the zImage so `populate_rootfs` doesn't depend on
-ATAG_INITRD2 reads at all). It compiled correctly — `objdump`
-confirms `__initramfs_size = 917142` in vmlinux — but the device
-still loops the same Innioasis-logo→black→reset pattern, suggesting
-either the runtime read of `__initramfs_size` returns 0 (section
-not loaded as we expect) or the kernel hangs in early init without
-writing expdb. Reverted while we look for a better diagnostic angle.
+- **USB-C audio** (`CONFIG_SND_USB_AUDIO` + USB host/OTG) — no
+  userspace workaround.
+- **Single-LUN car-USB MSC** (`NLUN_STORAGE=1`) — no userspace
+  workaround.
+
+Those are the reasons the rebuild remains active.
+
+**Open kernel-side blocker (parked):** the rebuilt zImage panics
+when flashed to BOOTIMG. `populate_rootfs` reads `5d 00` (LZMA
+magic) at `initrd_start` instead of our gzip cpio, falls through to
+`mount_root`, and panics with `Unable to mount root fs on
+unknown-block(0,0)`. Stock kernel + the same boot.img layout boots
+cleanly, so LK and the orchestrator memcpy are fine — something
+rebuilt-kernel-specific is clobbering or mis-mapping DRAM at
+PA 0x84100000 between when LK lands the ramdisk and when
+`populate_rootfs` reads it. A `CONFIG_INITRAMFS_SOURCE` workaround
+was also tried and failed opaquely (device looped the same pattern,
+expdb never updated). Root cause TBD; next diagnostic angles in
+`memory/diagnostic_y1_initrd_invariant.md`.
 
 The display panel and DSI bring-up are correct (LCM driver + DSI
 PHY/PLL match the stock kernel byte-for-byte); the dark-screen
@@ -183,10 +189,15 @@ is for the `-D` defines).
 - **Single-LUN USB mass storage.** Stock gadget exposes two LUNs
   (one empty) which many car head units reject; this exposes only
   the SD card so it enumerates as a plain USB flash drive.
-- **In-kernel Bluetooth (BlueZ) + virtual HCI.** Stock Android drove
-  the CONSYS combo chip from userspace and left the kernel BT
-  subsystem off; `CONFIG_BT`+`CONFIG_BT_HCIVHCI` are enabled so a
-  userspace H4 shim can bridge `/dev/stpbt` to `hci0`.
+- **In-kernel Bluetooth subsystem (vestigial; no longer load-bearing).**
+  Originally enabled (`CONFIG_BT`+`CONFIG_BT_HCIVHCI`) to support a
+  BlueZ-based userspace stack via a `/dev/stpbt`→`/dev/vhci` shim,
+  but the Path-C BT effort has since pivoted to BTstack — a userspace
+  stack that talks `/dev/stpbt` directly without needing the kernel
+  BT subsystem. These options can be dropped from the rebuilt kernel
+  in a future cleanup; left in for now to avoid extra build cycles
+  while we focus on the BOOTIMG-initrd debug. See
+  `y1-platform/docs/bluetooth.md` for the userspace direction.
 - **USB host/OTG + USB Audio Class.** `CONFIG_USB_MTK_OTG`/
   `HDRC_HCD` + `CONFIG_SND_USB_AUDIO` so a USB-C DAC or USB-C
   headset can be used for digital audio out.
