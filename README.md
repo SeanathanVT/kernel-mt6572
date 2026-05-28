@@ -73,7 +73,16 @@ make cci72_we_jb3_defconfig
 grep -E '^CONFIG_KPROBES=|^CONFIG_IKCONFIG=|^CONFIG_HID_LOGITECH=' .config
 # Expect: empty.  If anything echoes, see Config plumbing below.
 
-make -j"$(nproc)"
+# Force a full zImage rebuild from the changed sources every cycle.
+# The 3.4 ARM build can rebuild Image without cascading to zImage --
+# see "Pre-flash verification" below.
+rm -f arch/arm/boot/zImage \
+      arch/arm/boot/Image \
+      arch/arm/boot/compressed/vmlinux \
+      arch/arm/boot/compressed/piggy.gzip \
+      arch/arm/boot/compressed/piggy.gzip.o
+
+make -j"$(nproc)" zImage
 ```
 
 Output: `arch/arm/boot/zImage`. Wrap with
@@ -83,6 +92,30 @@ y1-platform README for the full flash flow.
 > `TARGET_PRODUCT` must be set, or `mediatek/build/Makefile` errors
 > out. The `mrproper` step matters when defconfig or a Kconfig
 > fragment changes — `make` alone won't notice.
+
+### 4. Pre-flash verification (always run before `mtk w bootimg`)
+
+Every iteration where you edit kernel source, confirm the rebuilt
+binary actually contains the edit BEFORE flashing. `make -j` on this
+3.4 ARM tree can rebuild `arch/arm/boot/Image` and `vmlinux` from the
+new source but **leave `arch/arm/boot/zImage` stale** (the
+`Image → piggy.gzip → zImage` dependency does not cascade reliably);
+`build-rockbox-boot.sh` then wraps the stale zImage and flashing
+produces a boot that LOOKS identical to the previous one. The
+canonical clean-rebuild commands above (the `rm -f ... && make
+zImage`) sidestep that bug, but verify anyway:
+
+```sh
+# Pick any unique string that appears in your source change -- a
+# printk you added, a function name, etc.  Example: the Y1DIAG
+# diagnostic patch.
+MARKER=Y1DIAG
+grep -c "$MARKER" arch/arm/boot/zImage                       # expect > 0
+grep -c "$MARKER" /path/to/build/y1-rockbox-bootimg.img      # expect > 0
+```
+
+If either grep returns 0, the binary you're about to flash does NOT
+have your edit. Re-run the clean rebuild + re-wrap before flashing.
 
 ## Config plumbing (read this when a CONFIG change doesn't stick)
 
