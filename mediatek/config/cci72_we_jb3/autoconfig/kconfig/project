@@ -13,6 +13,8 @@ CONFIG_MTK_VIDEOCODEC_DRIVER=m
 # below, so run it once (just to stage the initramfs files) before
 # building the kernel.
 CONFIG_INITRAMFS_SOURCE="../../y1-platform/rockbox-boot/build/initramfs"
+CONFIG_INITRAMFS_ROOT_UID=0
+CONFIG_INITRAMFS_ROOT_GID=0
 CONFIG_INITRAMFS_COMPRESSION_GZIP=y
 # CONFIG_INITRAMFS_COMPRESSION_NONE is not set
 # CONFIG_INITRAMFS_COMPRESSION_BZIP2 is not set
