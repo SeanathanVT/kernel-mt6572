@@ -4,6 +4,22 @@ MediaTek MT6572 BSP kernel (Linux 3.4.5), forked from the stock Acer/MTK
 source and reconfigured for the native Rockbox port of the Innioasis Y1.
 The build target ("product") is `cci72_we_jb3`.
 
+## Status (bring-up — display unresolved)
+
+The reconfigured kernel does **not yet bring the panel up cleanly.** It hangs in
+DSI display init *before* userspace runs: the DSI link doesn't stabilise
+(`RDMA0 underflow` in dmesg; the clock-glitch wait spins). Current lead is the
+DSI output rate — `pll_div1` in the ST7701 driver was halved (`2→1`, ~208→416
+Mbps/lane) to clear the underflow; under test. There is **no kernel console**
+(`printk.disable_uart=1`, no UART access on the unit) and the broken display
+masks all boot state, so debugging relies on the **screen as a visual oracle**
+and `mtk r misc` / `mtk r expdb` over BROM (no boot). **Temporary `[Y1FB]`
+printk instrumentation** is present in `dispsys`/`video` (`mtkfb_probe`, the
+config-update kthread, `disp_path_config_layer`) — **revert before shipping.**
+Capture tooling lives in the y1-platform repo (`DUMP_LOGS` / `USBDIAG` build
+flags). The known-good DSI references are `/work/v3.0.7/extract/lk.bin` and the
+stock `kernel_g368_nyx.bin`.
+
 ## Changes from the stock BSP
 
 - **USB mass storage exposes a single LUN.** The stock gadget exposes a
