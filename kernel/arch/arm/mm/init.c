@@ -70,8 +70,6 @@ static int __init parse_tag_initrd2(const struct tag *tag)
 {
 	phys_initrd_start = tag->u.initrd.start;
 	phys_initrd_size = tag->u.initrd.size;
-	pr_emerg("Y1DIAG: ATAG_INITRD2 start=0x%08lx size=0x%lx\n",
-		 phys_initrd_start, phys_initrd_size);
 	return 0;
 }
 
@@ -357,9 +355,6 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 		/* Now convert initrd to virtual addresses */
 		initrd_start = __phys_to_virt(phys_initrd_start);
 		initrd_end = initrd_start + phys_initrd_size;
-		pr_emerg("Y1DIAG: post-reserve phys=0x%08lx+0x%lx virt=[0x%lx, 0x%lx)\n",
-			 phys_initrd_start, phys_initrd_size,
-			 initrd_start, initrd_end);
 	}
 #endif
 

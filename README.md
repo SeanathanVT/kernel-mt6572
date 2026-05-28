@@ -6,16 +6,21 @@ The build target ("product") is `cci72_we_jb3`.
 
 ## Status
 
-The same boot.img layout — Y1's stock kernel + our custom gzip cpio
-initramfs — flashes to BOOTIMG and **boots Rockbox cleanly**, so the
-LK BOOTIMG path, the orchestrator memcpy, and the ATAG handoff all
-work correctly. Substituting our **rebuilt** zImage in place of stock,
-however, panics in `populate_rootfs` with `Initramfs unpacking failed:
-compression method lzma not configured` + `Freeing initrd memory:
-1528K` — kernel-side, not LK-side. The 1528K value is invariant
-across our gzip-cpio and PHASE6MARKER ramdisk variants, which means
-the rebuilt kernel is reading or reserving DRAM at the initrd address
-independently of the ATAG LK passes. Under active investigation.
+The external-initrd path (LK loads ramdisk.cpio.gz to PA 0x84100000,
+kernel reads it via ATAG_INITRD2) panics in `populate_rootfs` on the
+rebuilt kernel: `Initramfs unpacking failed: compression method lzma
+not configured` + `Freeing initrd memory: 1528K`. Stock kernel + the
+same external ramdisk boots cleanly, so LK and the orchestrator
+memcpy are fine — the bytes the rebuilt kernel reads at `initrd_start`
+aren't what LK put there.
+
+**Workaround in current build: bake the initramfs into the kernel
+image** via `CONFIG_INITRAMFS_SOURCE`. `populate_rootfs()` unpacks the
+linked-in cpio first, populates rootfs from it, then `/init` runs
+even though the external ATAG initrd unpack still fails. The
+underlying rebuilt-kernel-only DRAM-clobber bug is parked rather than
+worked around in init — we'll revisit it when the device is otherwise
+booting.
 
 The display panel and DSI bring-up are correct (LCM driver + DSI
 PHY/PLL match the stock kernel byte-for-byte); a residual *dark
@@ -52,7 +57,26 @@ sudo apt install -y build-essential bc bison flex perl tar xz-utils
 
 ### 3. Build
 
-From the repo root, build the merged config then the kernel:
+**Prerequisite: stage the initramfs source.** The kernel embeds the
+y1-platform initramfs directly via `CONFIG_INITRAMFS_SOURCE` (the
+external-initrd ATAG path is broken on the rebuilt kernel; the
+internal path bypasses it). Before `make`, run the y1-platform wrap
+script once just to populate the source directory the kernel reads:
+
+```sh
+cd $HOME/git/y1-platform/rockbox-boot
+./build-rockbox-boot.sh     # populates build/initramfs/{bin,init,...}
+                            # ignore the boot.img it writes; we'll rebuild it after the kernel
+```
+
+The default `CONFIG_INITRAMFS_SOURCE` is
+`../../y1-platform/rockbox-boot/build/initramfs` — relative to the
+kernel build directory, so kernel-mt6572 and y1-platform must be
+sibling checkouts under a common parent (matches the standard
+layout). If your tree is different, override in
+`mediatek/config/cci72_we_jb3/autoconfig/kconfig/project`.
+
+From the kernel repo root:
 
 ```sh
 cd kernel
@@ -93,29 +117,38 @@ y1-platform README for the full flash flow.
 > out. The `mrproper` step matters when defconfig or a Kconfig
 > fragment changes — `make` alone won't notice.
 
-### 4. Pre-flash verification (always run before `mtk w bootimg`)
+### 4. Pre-flash verification (run when changing kernel source)
 
-Every iteration where you edit kernel source, confirm the rebuilt
-binary actually contains the edit BEFORE flashing. `make -j` on this
-3.4 ARM tree can rebuild `arch/arm/boot/Image` and `vmlinux` from the
-new source but **leave `arch/arm/boot/zImage` stale** (the
-`Image → piggy.gzip → zImage` dependency does not cascade reliably);
-`build-rockbox-boot.sh` then wraps the stale zImage and flashing
-produces a boot that LOOKS identical to the previous one. The
-canonical clean-rebuild commands above (the `rm -f ... && make
-zImage`) sidestep that bug, but verify anyway:
+Every iteration that edits kernel source, confirm the rebuilt zImage
+actually contains the change BEFORE flashing. Plain `grep <STR>
+arch/arm/boot/zImage` does **not** work — `zImage` is mostly
+gzip-compressed Image, so the strings only exist inside the
+compressed payload.  Decompress the payload first:
 
 ```sh
-# Pick any unique string that appears in your source change -- a
-# printk you added, a function name, etc.  Example: the Y1DIAG
-# diagnostic patch.
+# Pick any unique string that appears in your source change -- a printk
+# you added, a function name, etc.  Example: the Y1DIAG diagnostic.
 MARKER=Y1DIAG
-grep -c "$MARKER" arch/arm/boot/zImage                       # expect > 0
-grep -c "$MARKER" /path/to/build/y1-rockbox-bootimg.img      # expect > 0
+
+# Most reliable: decompress piggy.gzip directly (it's the gzip-compressed
+# Image that gets concatenated into zImage).
+zcat arch/arm/boot/compressed/piggy.gzip | grep -c "$MARKER"   # expect > 0
+
+# Verify the boot.img wraps the same kernel.  Since the kernel section
+# inside boot.img is the same zImage byte sequence, you can confirm by
+# byte-comparing the embedded zImage to the on-disk one:
+ON_DISK=$HOME/git/y1-platform/rockbox-boot/build/y1-rockbox-bootimg.img
+dd if=$ON_DISK bs=512 skip=5 count=$(($(stat -c%s arch/arm/boot/zImage) / 512 + 1)) \
+   2>/dev/null | cmp -n $(stat -c%s arch/arm/boot/zImage) - arch/arm/boot/zImage
+# (Skip ANDROID! header (1 page = 4 sectors of 512B) + MTK KERNEL header
+# (512B = 1 sector) = 5 sectors of 512B; cmp limited to zImage size.)
+# No output = identical = boot.img has the kernel you just built.
 ```
 
-If either grep returns 0, the binary you're about to flash does NOT
-have your edit. Re-run the clean rebuild + re-wrap before flashing.
+If `zcat piggy.gzip | grep` returns 0, the cascade didn't reach the
+piggy stage; re-run the clean rebuild above. If `cmp` reports a diff,
+the wrap step picked up a stale zImage from somewhere; check the
+`KERNEL_ZIMAGE=` you passed to `build-rockbox-boot.sh`.
 
 ## Config plumbing (read this when a CONFIG change doesn't stick)
 
@@ -235,18 +268,17 @@ signals are:
 
 ## Known open issues
 
-- **Rebuilt-kernel BOOTIMG initrd panic.** Same boot.img layout, only
-  the zImage changes; with stock zImage it boots Rockbox, with our
-  zImage it panics with `compression method lzma not configured` +
-  `Freeing initrd memory: 1528K`. The 1528K size is invariant across
-  ramdisk contents (gzip cpio or PHASE6MARKER marker) and across
-  defconfig changes, suggesting the rebuilt kernel itself is
-  reading/reserving DRAM at `initrd_start` (0x84100000) differently
-  from stock. Under investigation; current line is comparing the
-  merged `.config` against what stock-kernel kallsyms tells us
-  shipped, and seeing whether bringing the rebuilt kernel size /
-  feature set closer to stock makes the panic go away. Install via
-  RECOVERY in the meantime.
+- **Rebuilt-kernel external-initrd path is broken.** With our zImage,
+  the kernel reads `5d 00` at `initrd_start` (LZMA magic, not gzip),
+  panics on unknown compression, and reports a fixed `Freeing initrd
+  memory: 1528K = 0x17E000` size regardless of the actual ramdisk we
+  packed. Stock zImage + same boot.img boots Rockbox, so LK delivers
+  the bytes; something in the rebuilt kernel either clobbers DRAM at
+  PA 0x84100000 before `populate_rootfs` runs, or maps a different VA
+  for it. Worked around by `CONFIG_INITRAMFS_SOURCE` (embed initramfs
+  in zImage); the external-initrd path still fails but the failure is
+  harmless once internal rootfs is populated. Root-cause TBD; not
+  blocking bring-up.
 - **Dark screen / Rockbox runs blind.** With the kernel booted from
   RECOVERY, init runs and execs `rockbox.y1`, but the panel scans out
   black instead of the Rockbox UI. The display engine completes init
