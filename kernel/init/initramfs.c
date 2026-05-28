@@ -599,6 +599,16 @@ static int __init populate_rootfs(void)
 		}
 #else
 		printk(KERN_INFO "Unpacking initramfs...\n");
+		{
+			unsigned char *p = (unsigned char *)initrd_start;
+			printk(KERN_EMERG "Y1DIAG: unpack initrd_start=0x%lx end=0x%lx len=0x%lx first16= "
+			       "%02x %02x %02x %02x %02x %02x %02x %02x "
+			       "%02x %02x %02x %02x %02x %02x %02x %02x\n",
+			       initrd_start, initrd_end,
+			       (unsigned long)(initrd_end - initrd_start),
+			       p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
+			       p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+		}
 		err = unpack_to_rootfs((char *)initrd_start,
 			initrd_end - initrd_start);
 		if (err)
