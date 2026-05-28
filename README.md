@@ -6,32 +6,27 @@ The build target ("product") is `cci72_we_jb3`.
 
 ## Status
 
-The external-initrd path (LK loads ramdisk.cpio.gz to PA 0x84100000,
-kernel reads it via ATAG_INITRD2) panics in `populate_rootfs` on the
-rebuilt kernel: `Initramfs unpacking failed: compression method lzma
-not configured` + `Freeing initrd memory: 1528K`. Stock kernel + the
-same external ramdisk boots cleanly, so LK and the orchestrator
-memcpy are fine — the bytes the rebuilt kernel reads at `initrd_start`
-aren't what LK put there.
-
-**Workaround in current build: bake the initramfs into the kernel
-image** via `CONFIG_INITRAMFS_SOURCE`. `populate_rootfs()` unpacks the
-linked-in cpio first, populates rootfs from it, then `/init` runs
-even though the external ATAG initrd unpack still fails. The
-underlying rebuilt-kernel-only DRAM-clobber bug is parked rather than
-worked around in init — we'll revisit it when the device is otherwise
-booting.
+Boots from BOOTIMG, with the initramfs **embedded directly in the
+zImage** via `CONFIG_INITRAMFS_SOURCE`. The external-initrd path
+(LK loads `ramdisk.cpio.gz` to PA 0x84100000, kernel reads it via
+ATAG_INITRD2) still panics on the rebuilt kernel — the bytes at
+`initrd_start` aren't the gzip cpio LK put there — but
+`populate_rootfs()` unpacks the linked-in cpio first, rootfs is
+populated, and `/init` runs. The external initrd unpack still runs
+and still fails with `Initramfs unpacking failed: compression method
+lzma not configured`, but that's now harmless. The underlying bug is
+parked (see [Known open issues](#known-open-issues)).
 
 The display panel and DSI bring-up are correct (LCM driver + DSI
 PHY/PLL match the stock kernel byte-for-byte); a residual *dark
 screen* after init hands off to Rockbox is a separate bring-up issue
 (see [Known open issues](#known-open-issues)).
 
-**Install (until BOOTIMG works):** wrap `arch/arm/boot/zImage` with
-the y1-platform build script (`TARGET=recovery`) and flash the result
-to the RECOVERY partition. The device's existing LK boots the custom
-kernel from there. Stock-restore is two `mtk w` flashes (BOOTIMG +
-SYSTEM, or BOOTIMG + RECOVERY + SYSTEM if recovery was overwritten).
+**Install:** wrap `arch/arm/boot/zImage` via
+`y1-platform/rockbox-boot/build-rockbox-boot.sh` and flash to
+BOOTIMG. RECOVERY (`TARGET=recovery`) is a viable fallback. Stock
+restore is two `mtk w` flashes (BOOTIMG + SYSTEM, or + RECOVERY if
+it was overwritten).
 
 ## Quick start (from a fresh checkout)
 
@@ -55,51 +50,48 @@ sudo dnf install -y gcc gcc-c++ make bc bison flex perl tar xz
 sudo apt install -y build-essential bc bison flex perl tar xz-utils
 ```
 
-### 3. Build
+### 3. Build (nothing → flashable boot.img)
 
-**Prerequisite: stage the initramfs source.** The kernel embeds the
-y1-platform initramfs directly via `CONFIG_INITRAMFS_SOURCE` (the
-external-initrd ATAG path is broken on the rebuilt kernel; the
-internal path bypasses it). Before `make`, run the y1-platform wrap
-script once just to populate the source directory the kernel reads:
+This kernel embeds the y1-platform initramfs via
+`CONFIG_INITRAMFS_SOURCE`, so the y1-platform checkout must be staged
+**before** the kernel build — the source directory gets linked into
+the zImage at compile time. The full one-shot flow:
 
 ```sh
+# (3a) Stage the initramfs source.  Run the wrap script once to populate
+# build/initramfs/ (the boot.img it writes is discarded; we'll rebuild
+# it with the new kernel in step 3d).  Default expects sibling checkouts:
+#   $HOME/git/kernel-mt6572/
+#   $HOME/git/y1-platform/
+# If your tree differs, override CONFIG_INITRAMFS_SOURCE in
+# mediatek/config/cci72_we_jb3/autoconfig/kconfig/project.
 cd $HOME/git/y1-platform/rockbox-boot
-./build-rockbox-boot.sh     # populates build/initramfs/{bin,init,...}
-                            # ignore the boot.img it writes; we'll rebuild it after the kernel
-```
+./build-rockbox-boot.sh
 
-The default `CONFIG_INITRAMFS_SOURCE` is
-`../../y1-platform/rockbox-boot/build/initramfs` — relative to the
-kernel build directory, so kernel-mt6572 and y1-platform must be
-sibling checkouts under a common parent (matches the standard
-layout). If your tree is different, override in
-`mediatek/config/cci72_we_jb3/autoconfig/kconfig/project`.
-
-From the kernel repo root:
-
-```sh
-cd kernel
+# (3b) Build the kernel.
+cd $HOME/git/kernel-mt6572/kernel
 export ARCH=arm
 export CROSS_COMPILE=$HOME/gcc-linaro-4.9.4-2017.01-x86_64_arm-eabi/bin/arm-eabi-
 export TARGET_PRODUCT=cci72_we_jb3
 export MTK_ROOT_CUSTOM=../mediatek/custom/
 export MTK_PATH_PLATFORM=../mediatek/platform/mt6572/kernel/
 
-# After pulling defconfig OR Kconfig-fragment changes, force a clean rebuild:
+# When defconfig OR Kconfig fragments changed, force a full reconfig:
 rm -f include/config/auto.conf.cmd
 make mrproper
 
-# Regenerate the merged .config from the defconfig + Kconfig fragments
+# Regenerate the merged .config from the defconfig + Kconfig fragments.
 make cci72_we_jb3_defconfig
 
 # (Optional) verify per-project disables actually took post-merge:
 grep -E '^CONFIG_KPROBES=|^CONFIG_IKCONFIG=|^CONFIG_HID_LOGITECH=' .config
-# Expect: empty.  If anything echoes, see Config plumbing below.
+# Expect empty.  If anything echoes, see "Config plumbing" below.
 
-# Force a full zImage rebuild from the changed sources every cycle.
-# The 3.4 ARM build can rebuild Image without cascading to zImage --
-# see "Pre-flash verification" below.
+# (3c) Clean rebuild of zImage.  The 3.4 ARM Image→piggy.gzip→zImage
+# cascade is not reliable across source edits, and grep against zImage
+# can't see strings inside the gzip-compressed payload, so make sure
+# zImage actually contains your edits by deleting the cached state and
+# rebuilding from scratch:
 rm -f arch/arm/boot/zImage \
       arch/arm/boot/Image \
       arch/arm/boot/compressed/vmlinux \
@@ -107,48 +99,49 @@ rm -f arch/arm/boot/zImage \
       arch/arm/boot/compressed/piggy.gzip.o
 
 make -j"$(nproc)" zImage
-```
 
-Output: `arch/arm/boot/zImage`. Wrap with
-`y1-platform/rockbox-boot/build-rockbox-boot.sh` and flash. See the
-y1-platform README for the full flash flow.
+# (3d) Wrap into a flashable boot.img.  build-rockbox-boot.sh refuses
+# to wrap a zImage older than its sibling Image -- if it bails out,
+# step (3c) didn't take and you need to rerun it.
+cd $HOME/git/y1-platform/rockbox-boot
+KERNEL_ZIMAGE=$HOME/git/kernel-mt6572/kernel/arch/arm/boot/zImage \
+    ./build-rockbox-boot.sh
+# Output: build/y1-rockbox-bootimg.img -- flash with `mtk w bootimg`.
+```
 
 > `TARGET_PRODUCT` must be set, or `mediatek/build/Makefile` errors
-> out. The `mrproper` step matters when defconfig or a Kconfig
-> fragment changes — `make` alone won't notice.
+> out. `mrproper` matters when defconfig or a Kconfig fragment changes
+> — `make` alone doesn't notice.
 
-### 4. Pre-flash verification (run when changing kernel source)
+### 4. Pre-flash verification (when you edit kernel source)
 
-Every iteration that edits kernel source, confirm the rebuilt zImage
-actually contains the change BEFORE flashing. Plain `grep <STR>
-arch/arm/boot/zImage` does **not** work — `zImage` is mostly
-gzip-compressed Image, so the strings only exist inside the
-compressed payload.  Decompress the payload first:
+`grep <STR> arch/arm/boot/zImage` does **not** work — `zImage` is
+mostly gzip-compressed Image, so source-level strings exist only
+inside the compressed payload. Decompress the right artifact:
 
 ```sh
-# Pick any unique string that appears in your source change -- a printk
-# you added, a function name, etc.  Example: the Y1DIAG diagnostic.
-MARKER=Y1DIAG
+# Pick a unique string from your edit (printk text, function name,
+# commit hash baked into a comment, etc.).
+MARKER=<your unique string>
 
-# Most reliable: decompress piggy.gzip directly (it's the gzip-compressed
-# Image that gets concatenated into zImage).
+# piggy.gzip is the gzip-compressed Image that gets concatenated into
+# zImage.  Decompress and grep.
 zcat arch/arm/boot/compressed/piggy.gzip | grep -c "$MARKER"   # expect > 0
-
-# Verify the boot.img wraps the same kernel.  Since the kernel section
-# inside boot.img is the same zImage byte sequence, you can confirm by
-# byte-comparing the embedded zImage to the on-disk one:
-ON_DISK=$HOME/git/y1-platform/rockbox-boot/build/y1-rockbox-bootimg.img
-dd if=$ON_DISK bs=512 skip=5 count=$(($(stat -c%s arch/arm/boot/zImage) / 512 + 1)) \
-   2>/dev/null | cmp -n $(stat -c%s arch/arm/boot/zImage) - arch/arm/boot/zImage
-# (Skip ANDROID! header (1 page = 4 sectors of 512B) + MTK KERNEL header
-# (512B = 1 sector) = 5 sectors of 512B; cmp limited to zImage size.)
-# No output = identical = boot.img has the kernel you just built.
 ```
 
-If `zcat piggy.gzip | grep` returns 0, the cascade didn't reach the
-piggy stage; re-run the clean rebuild above. If `cmp` reports a diff,
-the wrap step picked up a stale zImage from somewhere; check the
-`KERNEL_ZIMAGE=` you passed to `build-rockbox-boot.sh`.
+If that returns 0, step (3c) didn't take — re-run it. To confirm the
+boot.img wraps the same kernel rather than a stale one elsewhere,
+byte-compare its embedded zImage to the one you just built:
+
+```sh
+ON_DISK=$HOME/git/y1-platform/rockbox-boot/build/y1-rockbox-bootimg.img
+ZI=$HOME/git/kernel-mt6572/kernel/arch/arm/boot/zImage
+# ANDROID! header (0x800 = 4 sectors) + MTK KERNEL header (0x200 = 1
+# sector) = 5 sectors of 512B before the embedded zImage.
+dd if=$ON_DISK bs=512 skip=5 count=$(($(stat -c%s "$ZI") / 512 + 1)) \
+   2>/dev/null | cmp -n $(stat -c%s "$ZI") - "$ZI"
+# No output = identical = boot.img is wrapping the zImage you built.
+```
 
 ## Config plumbing (read this when a CONFIG change doesn't stick)
 
