@@ -931,14 +931,6 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	mtk_wdt_mode_config(FALSE, FALSE, TRUE, FALSE, FALSE);
 	g_wdt_enable =0;
 	#endif
-
-	/* Y1 bring-up: force the watchdog OFF. With CONFIG_MTK_WD_KICKER this probe
-	 * arms the WDT in dual mode expecting a kicker, but once init hands off to
-	 * Rockbox nothing kicks it and the device resets ~30s in. Disable the AP
-	 * RGU mode and (CONFIG_KICK_SPM_WDT) the SPM watchdog until Rockbox owns it. */
-	mtk_wdt_mode_config(FALSE, FALSE, TRUE, FALSE, FALSE);
-	mtk_wdt_enable(WK_WDT_DIS);
-	g_wdt_enable = 0;
 #endif
 
 	/* Update interval register value and check reboot flag */

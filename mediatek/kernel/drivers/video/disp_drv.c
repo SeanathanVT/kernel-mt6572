@@ -1810,18 +1810,6 @@ static int _DISP_ConfigUpdateKThread(void *data)
         dirty = 0;
         overlay_dirty = 0;
 
-        /* Y1 bring-up: does the config-update thread run, and does it see the
-         * pan's dirty FB layer? Captured in Y1_dmesg.txt (first 20 wakes). */
-        {
-            static int y1_ct = 0;
-            if (y1_ct < 20) {
-                y1_ct++;
-                printk("[Y1FB] cfgthread wake: OvlDirty=%d FB_LAYER=%d isDirty=%d addr=0x%x\n",
-                       atomic_read(&OverlaySettingDirtyFlag), FB_LAYER,
-                       cached_layer_config[FB_LAYER].isDirty, cached_layer_config[FB_LAYER].addr);
-            }
-        }
-
         if (down_interruptible(&sem_early_suspend)) {
             printk("[FB Driver] can't get semaphore in mtkfb_early_suspend()\n");
             continue;

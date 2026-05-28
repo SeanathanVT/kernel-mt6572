@@ -575,24 +575,6 @@ int disp_path_config_layer(OVL_CONFIG_STRUCT* pOvlConfig)
 
     //printk("[DDP]disp_path_config_layer() done, addr=0x%x \n", pOvlConfig->addr);
 
-    /* Y1 bring-up measurement: log (pure printk, NO hardware register reads --
-     * those can hang the bus early when RDMA/OVL clocks are in flux) the layer
-     * config we just programmed, for the first few calls (boot logo + pans).
-     * OVLLayerConfig() above already wrote pOvlConfig->addr to OVL_Lx_ADDR, so
-     * the want_addr here is what reaches the OVL layer register. Tells us whether
-     * a pan reaches disp_path_config_layer with a new address. Captured in
-     * Y1_dmesg.txt. Remove once the video-mode pan latch is fixed. */
-    {
-        static int y1_cfg_dbg = 0;
-        if (y1_cfg_dbg < 16) {
-            y1_cfg_dbg++;
-            printk("[Y1FB] config_layer L%d en=%d source=%d fmt=0x%x want_addr=0x%x pitch=%d (%dx%d)\n",
-                   pOvlConfig->layer, pOvlConfig->layer_en, pOvlConfig->source,
-                   pOvlConfig->fmt, pOvlConfig->addr, pOvlConfig->src_pitch,
-                   pOvlConfig->src_w, pOvlConfig->src_h);
-        }
-    }
-
     return 0;
 }
 
